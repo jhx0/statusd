@@ -1,0 +1,3 @@
+hostname -f
+uname -v
+uptime -p

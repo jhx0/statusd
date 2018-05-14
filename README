@@ -1,0 +1,31 @@
+About
+======
+
+statusd is a very simple way of collecting output from multiple 
+commands via network.
+
+Building
+=========
+
+Building statusd is as simple as running:
+
+make
+
+The statusd binary can be found in the build/ directory.
+
+Configuration
+==============
+
+Create /etc/statusd and put your altered commands config file there, 
+that's it. (A sample can be found in the examples directory)
+
+Usage
+======
+
+Easy, just run the statusd executable and be sure to have setup the 
+above mentioned commands config file in /etc/statusd.
+
+You can use pretty much anything as a client that receives data. The
+popular netcat utility does the job quite well, for example.
+
+...the rest is history :^) Enjoy!
