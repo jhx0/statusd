@@ -1,8 +1,7 @@
 all:
-	rm -rf build
-	mkdir build
-	./build.sh
-	@echo "Build finished"
+	@rm -rf build
+	@mkdir build
+	@./build.sh
 
 clean:
 	rm -rf build
