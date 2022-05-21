@@ -3,3 +3,6 @@ all:
 	mkdir build
 	./build.sh
 	@echo "Build finished"
+
+clean:
+	rm -rf build
