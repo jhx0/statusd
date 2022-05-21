@@ -14,7 +14,7 @@ import (
 )
 
 const prgName = "statusd"
-const prgVersion = "0.1"
+const prgVersion = "0.2"
 
 const logfile = "/var/log/statusd.log"
 const commandsFile = "/etc/statusd/commands"
@@ -161,7 +161,7 @@ func showVersion() {
 
 func main() {
 	if os.Getuid() != 0 {
-		fmt.Printf("statusd needs to be run with root rights, aborting.")
+		fmt.Println("statusd needs to be run with root rights, aborting!")
 		os.Exit(1)
 	}
 
