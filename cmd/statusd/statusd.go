@@ -39,6 +39,11 @@ type Statusd struct {
 	commands []string
 }
 
+const (
+	OK = iota
+	ERR
+)
+
 func (a address) getFullAddress() string { 
 	return (a.address + ":" + a.port) 
 }
@@ -54,10 +59,11 @@ func (a address) getAddress() string {
 func (s Statusd) server(c address) {
 	serverListener, err := net.Listen("tcp", c.getFullAddress())
 	if err != nil {
-		checkError("server", "Cannot listen", err)
+		s.logEntry("Listen", err.Error(), ERR)
+		os.Exit(1)
 	}
 
-	log.Printf("Server is listening on %s:%s\n", c.getAddress(), c.getPort())
+	s.logEntry("server", fmt.Sprintf("Server is listening on %s:%s", c.getAddress(), c.getPort()), OK)
 
 	for {
 		client, err := serverListener.Accept()
@@ -65,7 +71,7 @@ func (s Statusd) server(c address) {
 			continue
 		}
 
-		log.Printf("Client connected from %s\n", client.RemoteAddr())
+		s.logEntry("server", fmt.Sprintf("Client connected from %s", client.RemoteAddr()), OK)
 
 		go s.sendStatus(client)
 	}
@@ -79,7 +85,7 @@ func (s *Statusd) sendStatus(client net.Conn) {
 
 	statusLine += "Current time: " + time.Now().String() + "\n\n"
 
-	log.Printf("Executing commands on the server\n")
+	s.logEntry("sendStatus", "Executing commands on the server", OK)
 
 	for i := range s.commands {
 		statusLine += "### " + s.commands[i] + " ###" + "\n"
@@ -87,7 +93,7 @@ func (s *Statusd) sendStatus(client net.Conn) {
 		statusLine += "\n\n"
 	}
 
-	log.Printf("Sending information to client\n")
+	s.logEntry("sendStatus", "Sending information to the client", OK)
 
 	_, err := io.WriteString(client, statusLine)
 	if err != nil {
@@ -101,7 +107,8 @@ func (s Statusd) getCommandOutput(command string) string {
 
 	output, err := exec.Command(cmd[0], cmd[1:]...).Output()
 	if err != nil {
-		checkError("getCommandOutput", "exec.Command", err)
+		s.logEntry("getCommandOutput", err.Error(), ERR)
+		os.Exit(1)
 	}
 
 	return strings.TrimSpace(string(output))
@@ -110,7 +117,8 @@ func (s Statusd) getCommandOutput(command string) string {
 func (s *Statusd) parseCommands() {
 	f, err := os.Open(commandsFile)
 	if err != nil {
-		checkError("parseCommands", "os.Open", err)
+		s.logEntry("parseCommands", err.Error(), ERR)
+		os.Exit(1)
 	}
 
 	reader := bufio.NewReader(f)
@@ -131,10 +139,19 @@ func (s *Statusd) parseCommands() {
 	}
 }
 
-func createLogfile(logfile string) *os.File {
+func (s Statusd) logEntry(function string, message string, loglevel int) {
+	if loglevel == OK {
+		log.Printf("[INFO] (%s) - %s\n", function, message)
+	} else {
+		log.Printf("[ERROR] (%s) - %s\n", function, message)
+	}
+}
+
+func (s Statusd) createLogfile(logfile string) *os.File {
 	f, err := os.OpenFile(logfile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		checkError("createLogfile", "os.OpenFile", err)
+		fmt.Printf("Cannot create logfile, aborting!")
+		os.Exit(1)
 	}
 
 	log.SetOutput(f)
@@ -142,9 +159,10 @@ func createLogfile(logfile string) *os.File {
 	return f
 }
 
-func checkError(function, message string, err error) {
+func (s Statusd) hasCommandsFile() {
+	_, err := os.Stat(commandsFile) 
 	if err != nil {
-		log.Printf("%s: %s - %s\n", function, message, err.Error())
+		s.logEntry("hasCommandsFile", "No commands file found, exiting!", ERR)
 		os.Exit(1)
 	}
 }
@@ -180,12 +198,13 @@ func main() {
 
 	flag.Parse()
 
-	logfile := createLogfile(logfile)
+	s := Statusd{}
+
+	logfile := s.createLogfile(logfile)
 
 	defer logfile.Close()
 
-	s := Statusd{}
-
+	s.hasCommandsFile()
 	s.parseCommands()
 
 	s.server(address{*ip, *port})
