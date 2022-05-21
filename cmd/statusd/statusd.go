@@ -25,9 +25,9 @@ USAGE: statusd [ -v | -h ]
 	-v		show version information
 	-h		show this help message
 
-Copyright (2018) Julian "jhx" Weber (jhx0x00@gmail.com)
+Copyright (2018-2022) jhx (jhx0x00@gmail.com)
 If there are any suggestions or in general feedback, send
-me a mail to the given address above. enjoy! :^)
+me a mail to the given address above. enjoy!
 `
 
 type address struct {
@@ -35,20 +35,23 @@ type address struct {
 	port    string
 }
 
-func (a address) getFullAddress() string { return (a.address + ":" + a.port) }
-func (a address) getPort() string        { return a.port }
-func (a address) getAddress() string     { return a.address }
-
-var commands []string
-
-func checkError(function, message string, err error) {
-	if err != nil {
-		log.Printf("%s: %s - %s\n", function, message, err.Error())
-		os.Exit(1)
-	}
+type Statusd struct {
+	commands []string
 }
 
-func server(c address) {
+func (a address) getFullAddress() string { 
+	return (a.address + ":" + a.port) 
+}
+
+func (a address) getPort() string { 
+	return a.port 
+}
+
+func (a address) getAddress() string {
+	return a.address 
+}
+
+func (s Statusd) server(c address) {
 	serverListener, err := net.Listen("tcp", c.getFullAddress())
 	if err != nil {
 		checkError("server", "Cannot listen", err)
@@ -64,12 +67,12 @@ func server(c address) {
 
 		log.Printf("Client connected from %s\n", client.RemoteAddr())
 
-		go sendStatus(client)
+		go s.sendStatus(client)
 	}
 
 }
 
-func sendStatus(client net.Conn) {
+func (s *Statusd) sendStatus(client net.Conn) {
 	var statusLine string
 
 	defer client.Close()
@@ -78,9 +81,9 @@ func sendStatus(client net.Conn) {
 
 	log.Printf("Executing commands on the server\n")
 
-	for i := range commands {
-		statusLine += "### " + commands[i] + " ###" + "\n"
-		statusLine += getCommandOutput(commands[i])
+	for i := range s.commands {
+		statusLine += "### " + s.commands[i] + " ###" + "\n"
+		statusLine += s.getCommandOutput(s.commands[i])
 		statusLine += "\n\n"
 	}
 
@@ -93,7 +96,7 @@ func sendStatus(client net.Conn) {
 
 }
 
-func getCommandOutput(command string) string {
+func (s Statusd) getCommandOutput(command string) string {
 	cmd := strings.Split(command, " ")
 
 	output, err := exec.Command(cmd[0], cmd[1:]...).Output()
@@ -104,23 +107,7 @@ func getCommandOutput(command string) string {
 	return strings.TrimSpace(string(output))
 }
 
-func showVersion() {
-	fmt.Printf("%s v%s\n", prgName, prgVersion)
-	os.Exit(0)
-}
-
-func createLogfile(logfile string) *os.File {
-	f, err := os.OpenFile(logfile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		checkError("createLogfile", "os.OpenFile", err)
-	}
-
-	log.SetOutput(f)
-
-	return f
-}
-
-func parseCommands() {
+func (s *Statusd) parseCommands() {
 	f, err := os.Open(commandsFile)
 	if err != nil {
 		checkError("parseCommands", "os.Open", err)
@@ -140,12 +127,35 @@ func parseCommands() {
 			continue
 		}
 
-		commands = append(commands, string(line))
+		s.commands = append(s.commands, string(line))
+	}
+}
+
+func createLogfile(logfile string) *os.File {
+	f, err := os.OpenFile(logfile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		checkError("createLogfile", "os.OpenFile", err)
+	}
+
+	log.SetOutput(f)
+
+	return f
+}
+
+func checkError(function, message string, err error) {
+	if err != nil {
+		log.Printf("%s: %s - %s\n", function, message, err.Error())
+		os.Exit(1)
 	}
 }
 
 func showHelp() {
 	fmt.Println(helpMsg)
+	os.Exit(0)
+}
+
+func showVersion() {
+	fmt.Printf("%s v%s\n", prgName, prgVersion)
 	os.Exit(0)
 }
 
@@ -174,9 +184,11 @@ func main() {
 
 	defer logfile.Close()
 
-	parseCommands()
+	s := Statusd{}
 
-	server(address{*ip, *port})
+	s.parseCommands()
+
+	s.server(address{*ip, *port})
 
 	return
 }
